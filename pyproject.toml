@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "starnavi-test-task"
+version = "0.1.0"
+description = "API for workflow management"
+authors = ["Dmytro Petliovanyi <petliovany@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pre-commit = "^3.7.0"
+flake8 = "^7.0.0"
+mypy = "^1.9.0"
+isort = "^5.13.2"
+fastapi = "^0.110.1"
+uvicorn = {extras = ["standard"], version = "^0.29.0"}
+redis = "^5.0.3"
+alembic = "^1.13.1"
+pydantic = "^2.6.4"
+psycopg2-binary = "^2.9.9"
+networkx = "^3.3"
+matplotlib = "^3.8.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
