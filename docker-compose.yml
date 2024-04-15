@@ -1,0 +1,34 @@
+version: "3"
+
+services:
+  fastapi:
+    build:
+      dockerfile: ./workflow/Dockerfile
+    container_name: fastapi
+    env_file:
+      - .env
+    ports:
+      - "8001:8000"
+    depends_on:
+      - redis
+      - pgdb
+
+  redis:
+    image: redis
+    container_name: redis
+    command:
+      - --port 5370
+    expose:
+      - 5370
+
+  pgdb:
+    image: postgres
+    env_file: .env
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    container_name: pgdb
+
+volumes:
+  db-data:

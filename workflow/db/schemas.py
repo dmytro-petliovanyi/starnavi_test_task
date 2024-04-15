@@ -2,26 +2,28 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-from workflow.db.models import Node
+from workflow.settings.constants import NodeTypes
 
 
 class NodeBase(BaseModel):
-    name: str
-    node_type: str
-    status: Optional[str] = None
-    message: Optional[str] = None
-
-
-class NodeSchema(NodeBase):
     id: int
 
     class Config:
         orm_mode = True
 
 
+class NodeSchema(NodeBase):
+    name: str
+    node_type: str
+    status: Optional[str] = None
+    message: Optional[str] = None
+    condition: Optional[str] = None
+
+
 class EdgeBase(BaseModel):
     node_id: int
     next_node_id: int
+    yes_or_no: str
 
 
 class EdgeSchema(EdgeBase):
@@ -38,10 +40,14 @@ class WorkflowBase(BaseModel):
 
 class WorkflowSchema(WorkflowBase):
     id: int
-    nodes: list[Node] = []
+    nodes: list[NodeBase] = []
 
     class Config:
         orm_mode = True
+
+
+class DefaultResponseModel(BaseModel):
+    message: str
 
 
 class RequestNodeSchema(BaseModel):
@@ -49,6 +55,7 @@ class RequestNodeSchema(BaseModel):
     node_type: str
     status: str
     message: str
+    condition: str
 
     @field_validator('name')
     def validate_name(cls, name: str):
@@ -64,17 +71,24 @@ class RequestNodeSchema(BaseModel):
             raise ValueError("node_type cannot be empty")
         return node_type
 
-    @field_validator('status')
-    def validate_status(cls, status: str):
+    @field_validator('status', 'node_type')
+    def validate_status(cls, status: str, node_type: str):
         status = status.strip()
-        if not status:
+        if not status and node_type != NodeTypes.MESSAGE.value:
             raise ValueError("status cannot be empty")
         return status
 
-    @field_validator('message')
-    def validate_message(cls, message: str):
+    @field_validator('message', 'node_type')
+    def validate_message(cls, message: str, node_type: str):
         message = message.strip()
-        if not message:
+        if not message and node_type != NodeTypes.MESSAGE.value:
+            raise ValueError("message cannot be empty")
+        return message
+
+    @field_validator('condition', 'node_type')
+    def validate_condition(cls, condition: str, node_type: str):
+        message = condition.strip()
+        if not condition and node_type != NodeTypes.CONDITION.value:
             raise ValueError("message cannot be empty")
         return message
 
@@ -82,6 +96,7 @@ class RequestNodeSchema(BaseModel):
 class RequestEdgeSchema(BaseModel):
     node_id: int
     next_node_id: int
+    yes_or_no: Optional[str] = None
 
     @field_validator("node_id")
     def validate_node_id(cls, node_id: int):
@@ -97,21 +112,36 @@ class RequestEdgeSchema(BaseModel):
 
         return next_node_id
 
+    @field_validator("yes_or_no")
+    def validate_yes_or_no(cls, yes_or_no: str, values):
+        if yes_or_no is not None:
+            yes_or_no = yes_or_no.capitalize()
+
+            if yes_or_no not in {"Yes", "No"}:
+                raise ValueError('yes_or_no must be "Yes" or "No"')
+
+        return yes_or_no
+
 
 class RequestWorkflowSchema(BaseModel):
     name: str
     status: str
+    nodes: Optional[list[NodeSchema]]
 
     @field_validator("name")
     def validate_name(cls, name: str):
         name = name.strip()
+
         if not name.isalnum():
             raise ValueError("Invalid name, should contain only alphanumeric characters")
+
         return name
 
     @field_validator("status")
     def validate_status(cls, status: str):
         status = status.strip()
+
         if not status.isalnum():
             raise ValueError("Invalid status, should contain only alphanumeric characters")
+
         return status

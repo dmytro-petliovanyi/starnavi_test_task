@@ -1,7 +1,8 @@
 import networkx as nx
+from matplotlib import pyplot as plt
 
 from workflow.settings.configs import logging
-from workflow.settings.constants import NodeTypes, node_types
+from workflow.settings.constants import IMAGE_FILE_PATH, NodeTypes, node_types
 from workflow.settings.exceptions import EdgeCreationError, NodeCreationError
 
 
@@ -9,17 +10,19 @@ class WorkflowGraph:
     def __init__(self):
         self.graph = nx.DiGraph()
 
-    def add_node(self, node_id: int, node_name: str, node_type: str, **kwargs):
-        if node_type in node_types and node_types.get(node_type) == kwargs:
+    def add_node(self, node_id: int, node_name: str, node_type: str, **kwargs) -> None:
+        if node_type in node_types.keys():
             self.graph.add_node(node_id, node_type=node_type, node_name=node_name, **kwargs)
-        raise NodeCreationError("No necessary keys")
+        else:
+            raise NodeCreationError("No necessary keys")
 
-    def add_edge(self, from_node: int, to_node: int, yes_or_no: str = "", weight: int = 2):
+    def add_edge(self, from_node: int, to_node: int, yes_or_no: str = "", weight: int = 2) -> None:
         if from_node in self.graph.nodes and to_node in self.graph.nodes:
             self.graph.add_edge(from_node, to_node, yes_or_no=yes_or_no, weight=weight)
-        raise EdgeCreationError("Node doesn't exists")
+        else:
+            raise EdgeCreationError("Node doesn't exists")
 
-    def validate_workflow(self):
+    def validate_workflow(self) -> None:
         for node_id, data in self.graph.nodes(data=True):
             node_type = data.get('node_type')
             outgoing_edges = list(self.graph.successors(node_id))
@@ -48,7 +51,6 @@ class WorkflowGraph:
                     raise NodeCreationError("End node cannot have outgoing edges")
 
     def execute_workflow_with_condition(self):
-        condition_results = {}
 
         for node_id in nx.topological_sort(self.graph):
             node_data = self.graph.nodes[node_id]
@@ -63,10 +65,22 @@ class WorkflowGraph:
 
                     try:
                         condition_result = eval(condition_string, eval_globals)
-                        condition_results[node_id] = condition_result
                     except Exception as e:
                         logging.error(f"Error executing condition function for node {node_id}: {e}")
+                    else:
+                        for edge in self.graph.out_edges(node_id, data=True):
+                            print(edge[2])
+                            if condition_result:
+                                if edge[2].get('yes_or_no') == "Yes":
+                                    edge[2]['weight'] -= 1
+                            if not condition_result:
+                                if edge[2].get('yes_or_no') == "No":
+                                    edge[2]['weight'] -= 1
 
-            else:
-                if all(edge[0] in condition_results for edge in self.graph.in_edges(node_id)):
-                    logging.info(f"Executing node {node_id} based on condition result: {condition_results}")
+    def get_graph(self):
+
+        pos = nx.spring_layout(self.graph)
+        edge_labels = {(u, v): d['weight'] for u, v, d in self.graph.edges(data=True)}
+        nx.draw(self.graph, pos, with_labels=True, node_size=700, node_color='skyblue')
+        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels, font_color='red')
+        plt.savefig(IMAGE_FILE_PATH)
